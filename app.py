@@ -1,20 +1,20 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.datasets import fetch_california_housing
+from model.model import train_model, load_model
+import os
 
-st.set_page_config(page_title="California Housing - EDA", layout="wide")
+st.set_page_config(page_title="Plateforme Data Science", layout="wide")
 
-st.title("Analyse Exploratoire des Données")
+st.title("Plateforme d’Analyse et de Prédiction de Données")
 st.write("Dataset : California Housing")
+
+DATA_PATH = "data/dataset.csv"
+MODEL_PATH = "model/trained_model.pkl"
 
 # Chargement des données
 @st.cache_data
 def load_data():
-    housing = fetch_california_housing(as_frame=True)
-    df = housing.frame
-    return df
+    return pd.read_csv(DATA_PATH)
 
 df = load_data()
 
@@ -22,36 +22,34 @@ df = load_data()
 st.subheader("Aperçu du dataset")
 st.dataframe(df.head())
 
-# Dimensions
-st.subheader("Dimensions du dataset")
-st.write(f"Nombre de lignes : {df.shape[0]}")
-st.write(f"Nombre de colonnes : {df.shape[1]}")
+# Entraînement du modèle
+st.subheader("Entraînement du modèle")
 
-# Types de variables
-st.subheader("Types des variables")
-st.write(df.dtypes)
+model_type = st.selectbox(
+    "Choisir le modèle",
+    ("linear", "random_forest")
+)
 
-# Valeurs manquantes
-st.subheader("Valeurs manquantes")
-st.write(df.isnull().sum())
+if st.button("Entraîner le modèle"):
+    rmse, r2 = train_model(model_type)
+    st.success("Modèle entraîné et sauvegardé")
+    st.write(f"RMSE : {rmse:.3f}")
+    st.write(f"R² : {r2:.3f}")
 
-# Statistiques descriptives
-# =========================
-st.subheader("Statistiques descriptives")
-st.dataframe(df.describe())
+# Prédiction
+st.subheader("Prédiction")
 
-# Distribution de la cible
-st.subheader("Distribution de la valeur médiane des maisons")
+if not os.path.exists(MODEL_PATH):
+    st.warning("Veuillez entraîner le modèle avant de faire une prédiction.")
+else:
+    model = load_model()
 
-fig, ax = plt.subplots()
-ax.hist(df["MedHouseVal"], bins=50)
-ax.set_xlabel("MedHouseVal")
-ax.set_ylabel("Fréquence")
-st.pyplot(fig)
+    input_data = {}
+    for col in df.drop("MedHouseVal", axis=1).columns:
+        input_data[col] = st.number_input(col, float(df[col].mean()))
 
-# Corrélation
-st.subheader("Matrice de corrélation")
+    input_df = pd.DataFrame([input_data])
 
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.heatmap(df.corr(), cmap="coolwarm", ax=ax)
-st.pyplot(fig)
+    if st.button("Prédire"):
+        prediction = model.predict(input_df)[0]
+        st.success(f"Valeur prédite du logement : {prediction:.3f}")
